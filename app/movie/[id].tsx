@@ -1,6 +1,6 @@
-import { useLocalSearchParams } from 'expo-router';
+import { Link, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { View, Text, Image, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, Image, StyleSheet, ActivityIndicator, ScrollView, FlatList, Pressable } from 'react-native';
 import { api } from '../../src/api/tmdb';
 
 interface MovieDetails {
@@ -11,16 +11,26 @@ interface MovieDetails {
   runtime: number;
 }
 
+interface crewMemberDetails {
+  id:number;
+  name: string;
+  profile_path: string;
+}
+
 export default function MovieDetailsScreen() {
   // Captura o parâmetro '[id]' do nome do arquivo
   const { id } = useLocalSearchParams();
   const [movie, setMovie] = useState<MovieDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
+  const [crewMembers, setCrewMembers] = useState<crewMemberDetails[]>([]); 
+  
   useEffect(() => {
     const fetchMovieDetails = async () => {
       try {
         const response = await api.get(`/movie/${id}`);
+        const responseActor = await api.get(`/movie/${id}/credits`)
+        console.log(responseActor.data.cast);
+        setCrewMembers(responseActor.data.cast);
         setMovie(response.data);
       } catch (error) {
         console.error('Erro ao buscar detalhes:', error);
@@ -31,6 +41,27 @@ export default function MovieDetailsScreen() {
 
     fetchMovieDetails();
   }, [id]); // O hook é re-executado caso o ID mude
+
+  const renderActor = ({ item }: { item: crewMemberDetails }) => (
+      // Link do Expo Router passando o ID do filme como parâmetro dinâmico
+      <Link href={`/actor/${item.id}`} asChild>
+        <Pressable>
+          {item.profile_path ? (
+            <Image
+              source={{ uri: `https://image.tmdb.org/t/p/w500${item.profile_path}` }}
+              style={styles.poster}
+            />
+          ) : (
+            <View>
+              <Text>Sem Imagem</Text>
+            </View>
+          )}
+          <View>
+            <Text>{item.name}</Text>
+          </View>
+        </Pressable>
+      </Link>
+    );
 
   if (isLoading) {
     return (
@@ -70,6 +101,11 @@ export default function MovieDetailsScreen() {
           {movie.overview || 'Sinopse não disponível para este filme.'}
         </Text>
       </View>
+      <FlatList
+        data={crewMembers}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={renderActor}
+      />
     </ScrollView>
   );
 }
